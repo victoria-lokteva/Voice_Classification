@@ -10,7 +10,7 @@ class Model(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.conv = torch.nn.Conv2d(in_channels=1, out_channels=3, kernel_size=1)
-        self.inception = model = torchvision.models.inception_v3(pretrained=False)
+        self.inception = torchvision.models.inception_v3(pretrained=False)
         in_features = self.inception.fc.in_features
         self.inception.fc = torch.nn.Linear(in_features=in_features, out_features=1)
         self.sigmoid = torch.nn.Sigmoid()
@@ -39,7 +39,7 @@ def train(dataloader, device_name, model, lr=0.001, num_epoch=30):
     device = torch.device(device_name if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
-    loss_func = torch.nn.CrossEntropyLoss()
+    loss_func = torch.nn.BCELoss()
 
     for epoch in tqdm(range(num_epoch)):
         train_loader = iter(dataloader)
@@ -48,7 +48,7 @@ def train(dataloader, device_name, model, lr=0.001, num_epoch=30):
             X, Y = X.to(device), Y.to(device)
             optimizer.zero_grad()
             pred = model(X)
-            loss = loss_func(pred, Y.unsqueeze(1))
+            loss = loss_func(pred.double(), Y.unsqueeze(1))
             train_loss += loss.item()
             loss.backward()
             optimizer.step()
@@ -67,12 +67,13 @@ def test(model, dataloader, device, threshold=0.5):
     model = model.to(device)
     test_loader = iter(dataloader)
     model = model.eval()
+    loss_func = torch.nn.BCELoss()
     with torch.no_grad:
         for batch, (X, Y) in enumerate(tqdm(test_loader)):
             X, Y = X.to(device), Y.to(device)
             pred = model(X)
             pred_labels = pred >= threshold
-            loss = torch.nn.CrossEntropyLoss(pred, Y.unsqueeze(1))
+            loss = loss_func(pred.double(), Y.unsqueeze(1))
 
             labels.extend(Y.to_list)
             predicted_labels.extend(pred_labels.squeeze().to_list)
